@@ -8,32 +8,36 @@
     <link href="./style.css" rel="stylesheet" type="text/css">
     <style>
         header {
-            padding: 10px 40px;
+            padding: 10px;
             background: rgba(80, 80, 80, 0.6);
             color: white;
         }
 
-        .message {
-            padding: 10px 40px;
+        .message-box {
+            display: flex;
+            flex-direction: column-reverse;
+            margin: 5px;
             height: 350px;
-            border-bottom: 1px solid gray;
-            overflow: scroll;
+            overflow-y: auto;
+        }
+
+        .msg {
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 10px;
+            width: fit-content;
+            min-width: 15%;
+            max-width: 70%;
+            overflow-wrap: break-word;
         }
 
         .msg-user {
-            padding: 15px 30px;
-            margin: 10px;
             background: rgba(252, 243, 207, 0.8);
-            border-radius: 10px;
-            width: 60%;
+
         }
 
         .msg-robot {
-            padding: 15px 30px;
-            margin: 10px;
             background: rgba(171, 235, 198, 0.8);
-            border-radius: 10px;
-            width: 60%;
         }
 
         .tag {
@@ -46,17 +50,22 @@
             height: 150px;
             background: none;
             border: none;
-            border-bottom: 1px solid gray;
+            border-top: 2px solid rgba(80, 80, 80, 0.2);
+            border-bottom: 2px solid rgba(80, 80, 80, 0.2);
             resize: none;
-            padding: 10px 0px;
+            padding: 10px;
             font-size: medium;
+        }
+
+        .input-box:focus {
+            outline: none;
         }
 
         .btn-send {
             width: 70px;
             height: 35px;
             float: right;
-            margin-right: 20px;
+            margin: 10px 20px;
             background: #2ECC71;
             border: none;
             border-radius: 8px;
@@ -66,6 +75,14 @@
             cursor: pointer;
             background: #58D68D;
         }
+
+        .message-box::-webkit-scrollbar {
+            width: 3px;
+        }
+        
+        .message-box::-webkit-scrollbar-thumb {
+            background-color: rgba(80, 80, 80, 0.6);
+        }
     </style>
 </head>
 
@@ -73,16 +90,22 @@
     <div class="page" id="app">
         <div class="boxA">
             <header>您正在与小智机器人对话</header>
-            <div class="message">
-                <div v-for="item in message" :class="item.isUser ? 'msg-user' : 'msg-robot'">
+            <div class="message-box">
+                <div v-for="(item, index) in message" 
+                :style="{order: -index}" 
+                :class="item.isUser ? 'msg-user msg' : 'msg-robot msg'">
                     <span class="tag" v-html="item.isUser? 'you' : 'robot'"></span>
                     <br>
                     {{item.msg}}
                 </div>
             </div>
-            <textarea class="input-box" v-model="msgToSend" placeholder="请输入你想说的..."></textarea>
+            <textarea class="input-box" 
+            v-model="msgToSend" 
+            @keyup.enter="msgPost" 
+            placeholder="请输入你想说的..."></textarea>
             <footer>
                 <button @click="msgPost" class="btn-send">发送</button>
+                <div style="clear: both;"></div>
             </footer>
         </div>
     </div>
@@ -91,6 +114,7 @@
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 <script>
+    axios.defaults.baseURL = 'http://localhost:8083';
     var app = new Vue({
         el: '#app',
         data: {
@@ -99,6 +123,18 @@
         },
         methods: {
             msgPost() {
+                this.msgToSend = this.msgToSend.trim();
+                if(this.msgToSend.indexOf('天气') !== -1) {
+                    this.msgPostToChat();
+                    return;
+                }
+                if(Math.random() < 0.33) {
+                    this.msgPostToChat();
+                } else {
+                    this.msgPostToCustom();
+                }
+            },
+            msgPostToChat() {
                 let msg = this.msgToSend;
                 let postData = {
                     reqType: 0,
@@ -115,17 +151,34 @@
 
                 this.message.push( { msg: msg, isUser: 1 });
                 this.msgToSend = "";
-                axios.post('http://localhost:8083/chat', postData)
+                axios.post('/chat', postData)
                     .then((response) => {
-                        this.message.push({ msg: response.data.msg.body.results[0].values.text, isUser: 0 })
+                        this.message.push({ msg: response.data.msg.body.results[0].values.text, isUser: 0 });
                     })
                     .catch((error) => {
                         console.log(error)
                         alert('服务器错误...')
                     });
+            },
+            msgPostToCustom() {
+                let msg = this.msgToSend;
+                let postData = {
+                    text: msg
+                };
+
+                this.message.push( { msg: msg, isUser: 1 });
+                this.msgToSend = "";
+                axios.post('/custom', postData)
+                    .then((response) => {
+                        this.message.push({ msg: response.data.text, isUser: 0 });
+                    })
+                    .catch((error) => {
+                        console.log(error);
+                        alert('服务器错误...');
+                    });
             }
         }
-    })
+    });
 </script>
 
 </html>
